@@ -69,8 +69,6 @@ nil      {adjust(); return NIL;}
 function {adjust(); return FUNCTION;}
 var      {adjust(); return VAR;}
 type     {adjust(); return TYPE;}
-int      {adjust(); return INT_RES;}
-string   {adjust(); return STRING_RES;}
 
 [0-9]+	 {adjust(); yylval.ival=atoi(yytext); return INT;}
 

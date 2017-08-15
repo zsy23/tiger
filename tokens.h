@@ -48,6 +48,3 @@ extern YYSTYPE yylval;
 # define FUNCTION 297
 # define VAR 298
 # define TYPE 299
-# define INT_RES 300
-# define STRING_RES 301
-
