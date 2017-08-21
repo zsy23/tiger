@@ -5,6 +5,9 @@
 #include "errormsg.h"
 #include "absyn.h"
 
+//#define YYDEBUG 1
+//int yydebug = 1;
+	
 int yylex(void);
 
 A_exp absyn_root;
@@ -70,21 +73,19 @@ program:	exp		{ absyn_root = $1; }
 decs:					{ $$ = NULL; }
 		| dec decs		{ 
 							$$ = A_DecList($1, $2); 
-							if($$) {
-								for(A_decList d = $$; d->tail; d = d->tail) {
-									if(d->head->kind == d->tail->head->kind) {
-										if(d->head->kind == A_typeDec) {
-											A_nametyList n;
-											for(n = d->head->u.type; n->tail; n = n->tail);
-											n->tail = d->tail->head->u.type;
-											d->tail = d->tail->tail;
-										}
-										if(d->head->kind == A_functionDec) {
-											A_fundecList f;
-											for(f = d->head->u.function; f->tail; f = f->tail);
-											f->tail = d->tail->head->u.function;
-											d->tail = d->tail->tail;
-										}
+							for(A_decList d = $$; d && d->tail; d = d->tail) {
+								if(d->head->kind == d->tail->head->kind) {
+									if(d->head->kind == A_typeDec) {
+										A_nametyList n;
+										for(n = d->head->u.type; n->tail; n = n->tail);
+										n->tail = d->tail->head->u.type;
+										d->tail = d->tail->tail;
+									}
+									if(d->head->kind == A_functionDec) {
+										A_fundecList f;
+										for(f = d->head->u.function; f->tail; f = f->tail);
+										f->tail = d->tail->head->u.function;
+										d->tail = d->tail->tail;
 									}
 								}
 							}
@@ -146,7 +147,7 @@ exp:	ID		{ $$ = A_VarExp(EM_tokPos, A_SimpleVar(EM_tokPos, S_Symbol($1))); }
 		| IF exp THEN exp ELSE exp			{ $$ = A_IfExp(EM_tokPos, $2, $4, $6); }
 		| IF exp THEN exp					{ $$ = A_IfExp(EM_tokPos, $2, $4, NULL); }
 		| WHILE exp DO exp					{ $$ = A_WhileExp(EM_tokPos, $2, $4); }
-		| FOR ID ASSIGN exp TO exp DO exp	{ $$ = A_ForExp(EM_tokPos, S_Symbol($2), $4, 46, $8); }
+		| FOR ID ASSIGN exp TO exp DO exp	{ $$ = A_ForExp(EM_tokPos, S_Symbol($2), $4, $6, $8); }
 		| BREAK								{ $$ = A_BreakExp(EM_tokPos); }
 		| LET decs IN END				{ $$ = A_LetExp(EM_tokPos, $2, NULL); }
 		| LET decs IN exp expseq END	{ $$ = A_LetExp(EM_tokPos, $2, A_SeqExp(EM_tokPos, A_ExpList($4, $5))); }

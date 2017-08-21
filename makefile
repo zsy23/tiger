@@ -8,7 +8,7 @@ y.tab.o: y.tab.c
 	cc -g -c y.tab.c
 
 y.tab.c: tiger.grm
-	bison -dv tiger.grm -o y.tab.c
+	bison -dvt tiger.grm -o y.tab.c
 
 y.tab.h: y.tab.c
 	echo "y.tab.h was created at the same time as y.tab.c"
