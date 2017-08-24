@@ -5,6 +5,7 @@
 
 S_table E_base_tenv(void) {
 	S_table t = S_empty();
+	S_enter(t, S_Symbol(String("nil")), Ty_Nil());
 	S_enter(t, S_Symbol(String("int")), Ty_Int());
 	S_enter(t, S_Symbol(String("string")), Ty_String());
 
