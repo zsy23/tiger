@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "util.h"
 #include "symbol.h"
 #include "types.h"
@@ -40,13 +41,13 @@ S_table E_base_venv(void) {
 	S_enter(t, S_Symbol(String("size")), e);
 
 	// substring
-	Ty_TyList t = Ty_TyList(Ty_String(), Ty_TyList(Ty_Int(), Ty_TyList(Ty_Int(), NULL)));
-	e = E_FunEntry(t, Ty_String());
+	Ty_tyList tl = Ty_TyList(Ty_String(), Ty_TyList(Ty_Int(), Ty_TyList(Ty_Int(), NULL)));
+	e = E_FunEntry(tl, Ty_String());
 	S_enter(t, S_Symbol(String("substring")), e);
 
 	// concat
-	t = Ty_TyList(Ty_String(), Ty_TyList(Ty_String(), NULL));
-	e = E_FunEntry(Ty_TyList(NULL, NULL), Ty_String());
+	tl = Ty_TyList(Ty_String(), Ty_TyList(Ty_String(), NULL));
+	e = E_FunEntry(tl, Ty_String());
 	S_enter(t, S_Symbol(String("concat")), e);
 
 	// not
