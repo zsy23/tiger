@@ -22,9 +22,9 @@ static struct expty expTy(Tr_exp exp, Ty_ty ty) {
 }
 
 static Ty_ty actual_ty(Ty_ty ty) {
-	Ty_ty t;
+	Ty_ty t = ty;
 	while(t->kind == Ty_name)
-		t = t->u.name.ty;
+		t = actual_ty(t->u.name.ty);
 
 	return t;
 }
@@ -37,7 +37,7 @@ static Ty_ty		transTy (S_table tenv, A_ty t);
 void SEM_transProg(A_exp exp) {
 	S_table tenv = E_base_tenv();
 	S_table venv = E_base_venv();
-	transExp(tenv, venv, exp);
+	transExp(venv, tenv, exp);
 }
 
 static struct expty transVar(S_table venv, S_table tenv, A_var v) {
@@ -112,7 +112,7 @@ static struct expty transExp(S_table venv, S_table tenv, A_exp e) {
 					Ty_ty tmp_t = tl->head;
 					if(tmp_e && tmp_t) {
 						struct expty et = transExp(venv, tenv, tmp_e);
-						if(et.ty != tmp_t) {
+						if(et.ty != tmp_t && !(tmp_t->kind == Ty_record && et.ty->kind == Ty_nil)) {
 							EM_error(tmp_e->pos, "function argument type does not match");
 							return expTy(NULL, Ty_Void());
 						}
@@ -152,6 +152,8 @@ static struct expty transExp(S_table venv, S_table tenv, A_exp e) {
 					 left.ty == Ty_String() && right.ty == Ty_String())) {
 					if(e->u.op.oper == A_eqOp || e->u.op.oper == A_neqOp) {
 						if(!(left.ty->kind == Ty_record && right.ty->kind == Ty_record ||
+							 left.ty->kind == Ty_record && right.ty->kind == Ty_nil ||
+							 left.ty->kind == Ty_nil && right.ty->kind == Ty_record ||
 							 left.ty->kind == Ty_array && right.ty->kind == Ty_array)) {
 							EM_error(e->pos, "Comparison arguments' type does not match");
 							return expTy(NULL, Ty_Void());
@@ -207,18 +209,20 @@ static struct expty transExp(S_table venv, S_table tenv, A_exp e) {
 			}
 		}
 		case A_seqExp: {
-			if(e->u.seq->head == NULL)
+			if(e->u.seq == NULL)
 				return expTy(NULL, Ty_Void());
 			else {
 				A_expList el;
-				for(el = e->u.seq; el->tail; el = el->tail);
-				return transExp(venv, tenv, el->head);
+				struct expty et;
+				for(el = e->u.seq; el; el = el->tail)
+					et = transExp(venv, tenv, el->head);
+				return et;
 			}
 		}
 		case A_assignExp: {
 			struct expty vet = transVar(venv, tenv, e->u.assign.var);
 			struct expty eet = transExp(venv, tenv, e->u.assign.exp);
-			if(vet.ty != eet.ty) {
+			if(vet.ty != eet.ty && !(vet.ty->kind == Ty_record && eet.ty->kind == Ty_nil)) {
 				EM_error(e->pos, "two sides's type of assignment does not match");
 				return expTy(NULL, Ty_Void());
 			}
@@ -278,9 +282,11 @@ static struct expty transExp(S_table venv, S_table tenv, A_exp e) {
 				return expTy(NULL, Ty_Void());
 			} 
 			S_endScope(venv);
+			return expTy(NULL, Ty_Void());
 		}
 		case A_breakExp: {
 			// TODO
+			return expTy(NULL, Ty_Void());
 		}
 		case A_letExp: {
 			S_beginScope(venv);
@@ -332,17 +338,44 @@ static void transDec(S_table venv, S_table tenv, A_dec d) {
 			struct expty et = transExp(venv, tenv, d->u.var.init);
 			if(d->u.var.typ) {
 				Ty_ty ty = S_look(tenv, d->u.var.typ);
-				if(ty != et.ty) {
+				if(ty != et.ty && !(ty->kind == Ty_record && et.ty->kind == Ty_nil)) {
 					EM_error(d->pos, "variable declaration's type does not match init");
 					break;
 				}
+				S_enter(venv, d->u.var.var, E_VarEntry(ty));
 			}
-			S_enter(venv, d->u.var.var, E_VarEntry(et.ty));
+			else {
+				if(et.ty->kind == Ty_nil) {
+					EM_error(d->pos, "nil must be in a context where its type can be determined");
+					break;
+				}
+				S_enter(venv, d->u.var.var, E_VarEntry(et.ty));
+			}
 		}
 		break;
 		case A_functionDec: {
 			for(A_fundecList fl = d->u.function; fl; fl = fl->tail) {
+				S_beginScope(venv);
 				A_fundec f = fl->head;
+				Ty_tyList tmp_tl, tl = Ty_TyList(NULL, NULL);
+				A_fieldList l;
+				for(tmp_tl = tl, l = f->params; l; l = l->tail) {
+					Ty_ty ty = S_look(tenv, l->head->typ);
+					if(!ty) {
+						EM_error(l->head->pos, "undefined type %s", S_name(l->head->typ));
+						break;
+					}
+					tmp_tl->head = ty;
+					if(l->tail) {
+						tmp_tl->tail = Ty_TyList(NULL, NULL);
+						tmp_tl = tmp_tl->tail;
+					}
+					S_enter(venv, l->head->name, E_VarEntry(ty));
+				}
+				if(l) {
+					S_endScope(venv);
+					break;
+				}
 				struct expty et = transExp(venv, tenv, f->body);
 				if(f->result) {
 					Ty_ty ty = S_look(tenv, f->result);
@@ -357,22 +390,7 @@ static void transDec(S_table venv, S_table tenv, A_dec d) {
 						break;
 					}
 				}
-				Ty_tyList tmp_tl, tl = Ty_TyList(NULL, NULL);
-				A_fieldList l;
-				for(tmp_tl = tl, l = f->params; l; l = l->tail) {
-					Ty_ty ty = S_look(tenv, l->head->typ);
-					if(!ty) {
-						EM_error(l->head->pos, "undefined type %s", S_name(l->head->typ));
-						break;
-					}
-					tmp_tl->head = ty;
-					if(l->tail) {
-						tmp_tl->tail = Ty_TyList(NULL, NULL);
-						tmp_tl = tmp_tl->tail;
-					}
-				}
-				if(!l)
-					break;
+				S_endScope(venv);
 				S_enter(venv, f->name, E_FunEntry(tl, et.ty));
 			}
 		}
@@ -405,8 +423,10 @@ static Ty_ty transTy(S_table tenv, A_ty t) {
 					return Ty_Void();
 				}
 				p_tfl->head = Ty_Field(afl->head->name, ty);
-				if(afl->tail)
+				if(afl->tail) {
 					p_tfl->tail = Ty_FieldList(NULL, NULL);
+					p_tfl = p_tfl->tail;
+				}
 			}
 			return Ty_Record(tfl);
 		}
