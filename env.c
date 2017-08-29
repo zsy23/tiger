@@ -21,11 +21,11 @@ S_table E_base_venv(void) {
 	S_enter(t, S_Symbol(String("print")), e);
 	
 	// flush
-	e = E_FunEntry(Ty_TyList(NULL, NULL), Ty_Void());
+	e = E_FunEntry(NULL, Ty_Void());
 	S_enter(t, S_Symbol(String("flush")), e);
 
 	// getchar
-	e = E_FunEntry(Ty_TyList(NULL, NULL), Ty_String());
+	e = E_FunEntry(NULL, Ty_String());
 	S_enter(t, S_Symbol(String("getchar")), e);
 
 	// ord
