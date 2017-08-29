@@ -8,6 +8,8 @@
 #include "translate.h"
 #include "semant.h"
 
+static int for_while = 0;
+
 struct expty {
 	Tr_exp exp;
 	Ty_ty ty;
@@ -216,11 +218,8 @@ static struct expty transExp(S_table venv, S_table tenv, A_exp e) {
 			else {
 				A_expList el;
 				struct expty et = expTy(NULL, Ty_Void());
-				for(el = e->u.seq; el; el = el->tail) {
-					if(el->head->kind == A_breakExp)
-						break;
+				for(el = e->u.seq; el; el = el->tail)
 					et = transExp(venv, tenv, el->head);
-				}
 				return et;
 			}
 		}
@@ -257,42 +256,51 @@ static struct expty transExp(S_table venv, S_table tenv, A_exp e) {
 			return expTy(NULL, tet.ty);
 		}
 		case A_whileExp: {
+			for_while = 1;
 			struct expty et = transExp(venv, tenv, e->u.whilee.test);
 			if(et.ty != Ty_Int()) {
 				EM_error(e->pos, "while's test must be int");
+				for_while = 0;
 				return expTy(NULL, Ty_Void());
 			}
 			et = transExp(venv, tenv, e->u.whilee.body);
 			if(et.ty != Ty_Void()) {
 				EM_error(e->pos, "while's body must produce no value");
+				for_while = 0;
 				return expTy(NULL, Ty_Void());
 			}
-
+			for_while = 0;
 			return expTy(NULL, Ty_Void());
 		}
 		case A_forExp: {
+			for_while = 1;
 			S_beginScope(venv);
 			S_enter(venv, e->u.forr.var, E_VarEntry(Ty_Int()));
 			struct expty et = transExp(venv, tenv, e->u.forr.lo);
 			if(et.ty != Ty_Int()) {
 				EM_error(e->pos, "for's lo must be int");
+				for_while = 0;
 				return expTy(NULL, Ty_Void());
 			}
 			et = transExp(venv, tenv, e->u.forr.hi);
 			if(et.ty != Ty_Int()) {
 				EM_error(e->pos, "for's hi must be int");
+				for_while = 0;
 				return expTy(NULL, Ty_Void());
 			} 
 			et = transExp(venv, tenv, e->u.forr.body);
 			if(et.ty != Ty_Void()) {
 				EM_error(e->pos, "for's body must produce no value");
+				for_while = 0;
 				return expTy(NULL, Ty_Void());
 			} 
 			S_endScope(venv);
+			for_while = 0;
 			return expTy(NULL, Ty_Void());
 		}
 		case A_breakExp: {
-			EM_error(e->pos, "break should not be trans");
+			if(!for_while)
+				EM_error(e->pos, "break must within for or while");
 			return expTy(NULL, Ty_Void());
 		}
 		case A_letExp: {

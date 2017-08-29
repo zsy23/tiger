@@ -1,0 +1,9 @@
+/* break between in and end */
+
+let
+	var a := 0
+in
+	a+1;
+	break;
+	a:=a+1
+end

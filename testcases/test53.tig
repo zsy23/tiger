@@ -1,0 +1,8 @@
+/* break in if */
+
+let
+	var a:= 0
+in
+	if a then
+		break
+end
