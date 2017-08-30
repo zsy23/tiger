@@ -47,4 +47,4 @@ util.o: util.c
 	cc -g -c util.c
 
 clean: 
-	rm -f a.out util.o parsetest.o lex.yy.o errormsg.o y.tab.c y.tab.h y.tab.o prabsyn.o parse.o absyn.o symbol.o table.o y.output types.o env.o semant.o
+	rm -f a.out util.o parsetest.o lex.yy.o errormsg.o y.tab.c y.tab.h y.tab.o prabsyn.o parse.o absyn.o symbol.o table.o y.output types.o env.o semant.o absyn
