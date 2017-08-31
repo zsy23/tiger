@@ -24,9 +24,12 @@ void adjust(void)
 %x STR ESC COMMENT
 %%
 	int comment_nest = 0;
+	char str[256];
+	char *str_p;
+	int str_len;
 
 " "	 |
-\t   |
+\t	 | 
 \r   {adjust(); continue;}
 \n	 {adjust(); EM_newline(); continue;}
 ","	 {adjust(); yylval.pos = EM_tokPos; return COMMA;}
@@ -72,11 +75,21 @@ type     {adjust(); yylval.pos = EM_tokPos; return TYPE;}
 
 [0-9]+	 {adjust(); yylval.ival=atoi(yytext); return INT;}
 
-\"       {yymore(); BEGIN(STR);}
-<STR>\"  {adjust(); yylval.sval=String(yytext); BEGIN(INITIAL); return STRING;}
-<STR>\n      {adjust(); EM_newline(); EM_error(EM_tokPos,"unclosed string"); BEGIN(INITIAL);}
-<STR><<EOF>> {adjust(); EM_error(EM_tokPos,"unclosed string"); BEGIN(INITIAL); yyterminate();}
-<STR>.|" "|\t|\r  {yymore();} 
+\"						{str_len=yyleng; str_p = str; BEGIN(STR);}
+<STR>\"  				{str_len+=yyleng; EM_tokPos=charPos; charPos+=str_len; *str_p='\0'; yylval.sval=String(str); BEGIN(INITIAL); return STRING;}
+<STR>\\	 				{str_len+=yyleng; BEGIN(ESC);}
+<ESC>n					{str_len+=yyleng; *str_p++='\n'; BEGIN(STR);}
+<ESC>t					{str_len+=yyleng; *str_p++='\t'; BEGIN(STR);}
+<ESC>\^c				{str_len+=yyleng; *str_p++='\^c'; BEGIN(STR);}
+<ESC>[0-9]{3}			{EM_tokPos=charPos+str_len; int d; sscanf(yytext, "%d", &d); if(d > 255) EM_error(EM_tokPos, "ASCII code out of bound"); str_len+=yyleng; *str_p++=d; BEGIN(STR);}
+<ESC>\"					{str_len+=yyleng; *str_p++='\"'; BEGIN(STR);}
+<ESC>\\					{str_len+=yyleng; *str_p++='\\'; BEGIN(STR);}
+<ESC>\n(" "|\t|\r)*\\  	{EM_tokPos=charPos+str_len; EM_newline(); str_len+=yyleng; BEGIN(STR);}
+<ESC>(" "|\t|\r)+\\ 	{str_len+=yyleng; BEGIN(STR);}
+<ESC>(" "|\t|\r)*		{str_len+=yyleng; BEGIN(STR);}
+<STR>\n					{EM_tokPos=charPos; charPos+=str_len; EM_error(EM_tokPos,"unclosed string"); adjust(); EM_newline(); BEGIN(INITIAL);}
+<STR><<EOF>> 			{EM_tokPos=charPos; charPos+=str_len; EM_error(EM_tokPos,"unclosed string"); adjust(); BEGIN(INITIAL); yyterminate();}
+<STR>.|" "|\t|\r  		{str_len+=yyleng; *str_p++=yytext[0];} 
 
 [a-zA-Z]([a-zA-Z0-9]|"_")* {adjust(); yylval.sval=String(yytext); return ID;}
 
