@@ -10,6 +10,22 @@ struct Tr_access_ {
 	F_access access;
 };
 
+static Tr_level Tr_Level(Tr_level parent, F_frame frame) {
+    Tr_level level = checked_malloc(sizeof(*level));
+    level->parent = parent;
+    level->frame = frame;
+
+    return level;
+}
+
+static Tr_access Tr_Access(Tr_level level, F_access access) {
+    Tr_access tr_access = checked_malloc(sizeof(*tr_access));
+    tr_access->level = level;
+    tr_access->access = access;
+
+    return tr_access;
+}
+
 Tr_accessList Tr_AccessList(Tr_acess head, Tr_accessList tail) {
 	Tr_accessList list = checked_malloc(sizeof(*list));	
 	list->head = head;
@@ -24,27 +40,18 @@ Tr_level Tr_outermost(void) {
 }
 
 Tr_level Tr_newLevel(Tr_level parent, Temp_label name, U_boolList formals) {
-	Tr_level level = checked_malloc(sizeof(*level));
-	level->parent = parent;
-	level->frame = F_newFrame(name, formals);
-
-	return level;
+	return Tr_Level(parent, F_newFrame(name, U_BoolList(TRUE, formals)));
 }
 
 Tr_accessList Tr_formals(Tr_level level) {
-	Tr_accessList trList = checked_malloc(sizeof(*trList));
-	trList->head = NULL;
-	trList->tail = NULL;
+	Tr_accessList trList = NULL;
 	F_accessList fList = F_formals(level->frame);
-	if(fList) {
+	if(fList && fList->tail) {
+        fList = fList->tail;
+        trList = Tr_AccessList(Tr_Access(level, fList->head), NULL);
 		Tr_accesslist tmp = trList;
-		trList->head->level = level;
-		trList->head->access = fList->head;
 		for(fList = fList->tail; fList; fList = fList->tail) {
-			Tr_accessList trList = checked_malloc(sizeof(*trList));
-			trList->head->level = level;
-			trList->head->access = fList->head;
-			trList->tail = NULL;
+			Tr_accessList trList = Tr_AccessList(Tr_Access(level, fList->head), NULL);
 			tmp->tail = trList;
 			tmp = tmp->tail;
 		}
@@ -54,9 +61,5 @@ Tr_accessList Tr_formals(Tr_level level) {
 }
 
 Tr_access Tr_allocLocal(Tr_level level, bool escape) {
-	Tr_access access = checked_malloc(sizeof(*access));
-	access->level = level;
-	access->access = F_allocLocal(level->frame, escape);
-
-	return access;
+	return Tr_Access(level, F_allocLocal(level->frame, escape));
 }

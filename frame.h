@@ -22,6 +22,7 @@ struct F_accessList_ {
 	F_access head;
 	F_accessList tail;
 };
+F_accessList F_AccessList(F_access head, F_accessList tail);
 
 F_frame F_newFrame(Temp_label name, U_boolList formals);
 Temp_label F_name(F_frame f);
