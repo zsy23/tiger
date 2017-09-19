@@ -50,6 +50,24 @@ F_accessList F_AccessList(F_access head, F_accessList tail) {
     return list;
 }
 
+void F_printAccess(F_access access) {
+	if(access->kind == inFrame)
+		printf("InFrame(%d)", access->u.offset);
+	else if(access->kind == inReg)
+		printf("InReg(%d)", Temp_tempnum(access->u.reg));
+}
+
+void F_printFrame(F_frame frame) {
+	printf("name: %s\n", Temp_labelstring(frame->name));
+	printf("foramsl:");
+	for(F_accessList formals = frame->formals; formals; formals = formals->tail) {
+		printf(" ");
+		F_printAccess(formals->head);
+	}
+	printf("\n");
+	printf("locals: %d\n", frame->locals);
+}
+
 F_frame F_newFrame(Temp_label name, U_boolList formals) {
     F_frame frame = F_Frame(name, NULL, 0);
     if(formals) {

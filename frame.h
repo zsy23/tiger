@@ -5,7 +5,7 @@ typedef struct F_access_ *F_access;
  * struct F_frame_ {
  *     Temp_label name;
  *     F_accessList formals;
- * 	   F_accessList locals;
+ * 	   int locals;
  * };
  *
  * struct F_access_ {
@@ -23,6 +23,9 @@ struct F_accessList_ {
 	F_accessList tail;
 };
 F_accessList F_AccessList(F_access head, F_accessList tail);
+
+void F_printAccess(F_access access);
+void F_printFrame(F_frame frame);
 
 F_frame F_newFrame(Temp_label name, U_boolList formals);
 Temp_label F_name(F_frame f);

@@ -44,6 +44,10 @@ Temp_temp Temp_newtemp(void)
  return p;
 }
 
+int Temp_tempnum(Temp_temp temp) {
+	return temp->num;
+}
+
 
 
 struct Temp_map_ {TAB_table tab; Temp_map under;};

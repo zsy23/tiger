@@ -34,6 +34,22 @@ Tr_accessList Tr_AccessList(Tr_acess head, Tr_accessList tail) {
 	return list;
 }
 
+void Tr_printLevel(Tr_level level) {
+	printf("Level %s\n", level->frame ? Temp_labelstring(level->frame->name) : "outermost");
+
+	if(level->parent)
+		printf("parent: Level %s\n", level->parnet->frame ? Temp_labelstring(level->parent->frame->name) : "outermost");
+	if(level->frame)
+		F_printFrame(level->frame);
+}
+
+void Tr_printAccess(Tr_access access) {
+	printf("Access ");
+	F_printAccess(access->access);
+	if(access->level)
+		printf(" at level %s\n", access->level->frame ? Temp_labelstring(access->level->frame->name) : "outermost");
+}
+
 static struct Tr_level_ lvzero = {NULL, NULL};
 Tr_level Tr_outermost(void) {
 	return &lvzero;
