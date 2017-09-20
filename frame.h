@@ -1,22 +1,6 @@
 typedef struct F_frame_ *F_frame;
 typedef struct F_access_ *F_access;
 
-/*
- * struct F_frame_ {
- *     Temp_label name;
- *     F_accessList formals;
- * 	   int locals;
- * };
- *
- * struct F_access_ {
- *     enum {inFrame, inReg} kind;
- *	   union {
- *	       int offset;
- *		   Temp_temp reg;
- *	   } u;
- * };
- */
-
 typedef struct F_accessList_ *F_accessList;
 struct F_accessList_ {
 	F_access head;

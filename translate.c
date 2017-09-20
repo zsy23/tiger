@@ -1,3 +1,8 @@
+#include <stdio.h>
+#include "util.h"
+#include "symbol.h"
+#include "temp.h"
+#include "frame.h"
 #include "translate.h"
 
 struct Tr_level_ {
@@ -26,7 +31,7 @@ static Tr_access Tr_Access(Tr_level level, F_access access) {
     return tr_access;
 }
 
-Tr_accessList Tr_AccessList(Tr_acess head, Tr_accessList tail) {
+Tr_accessList Tr_AccessList(Tr_access head, Tr_accessList tail) {
 	Tr_accessList list = checked_malloc(sizeof(*list));	
 	list->head = head;
 	list->tail = tail;
@@ -35,10 +40,10 @@ Tr_accessList Tr_AccessList(Tr_acess head, Tr_accessList tail) {
 }
 
 void Tr_printLevel(Tr_level level) {
-	printf("Level %s\n", level->frame ? Temp_labelstring(level->frame->name) : "outermost");
+	printf("Level %s\n", level->frame ? Temp_labelstring(F_name(level->frame)) : "outermost");
 
 	if(level->parent)
-		printf("parent: Level %s\n", level->parnet->frame ? Temp_labelstring(level->parent->frame->name) : "outermost");
+		printf("parent: Level %s\n", level->parent->frame ? Temp_labelstring(F_name(level->parent->frame)) : "outermost");
 	if(level->frame)
 		F_printFrame(level->frame);
 }
@@ -47,7 +52,7 @@ void Tr_printAccess(Tr_access access) {
 	printf("Access ");
 	F_printAccess(access->access);
 	if(access->level)
-		printf(" at level %s\n", access->level->frame ? Temp_labelstring(access->level->frame->name) : "outermost");
+		printf(" at level %s\n", access->level->frame ? Temp_labelstring(F_name(access->level->frame)) : "outermost");
 }
 
 static struct Tr_level_ lvzero = {NULL, NULL};
@@ -65,7 +70,7 @@ Tr_accessList Tr_formals(Tr_level level) {
 	if(fList && fList->tail) {
         fList = fList->tail;
         trList = Tr_AccessList(Tr_Access(level, fList->head), NULL);
-		Tr_accesslist tmp = trList;
+		Tr_accessList tmp = trList;
 		for(fList = fList->tail; fList; fList = fList->tail) {
 			Tr_accessList trList = Tr_AccessList(Tr_Access(level, fList->head), NULL);
 			tmp->tail = trList;

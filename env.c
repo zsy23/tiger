@@ -2,6 +2,8 @@
 #include "util.h"
 #include "symbol.h"
 #include "types.h"
+#include "temp.h"
+#include "translate.h"
 #include "env.h"
 
 S_table E_base_tenv(void) {

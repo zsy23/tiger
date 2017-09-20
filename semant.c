@@ -4,9 +4,12 @@
 #include "symbol.h"
 #include "absyn.h"
 #include "types.h"
-#include "env.h"
+#include "temp.h"
 #include "translate.h"
+#include "env.h"
 #include "semant.h"
+
+#define TEST_ACTIVATION_RECORDS
 
 static int for_while = 0;
 
@@ -36,23 +39,25 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 static void			transDec(Tr_level level, S_table venv, S_table tenv, A_dec d);
 static Ty_ty		transTy (S_table tenv, A_ty t);
 
+#ifdef TEST_ACTIVATION_RECORDS
 static void show_activation_records(S_symbol sym, E_enventry entry) {
-	printf("%s: ", S_name(sym));
+	printf("%s:\n", S_name(sym));
 	if(entry->kind == E_varEntry)
 		Tr_printAccess(entry->u.var.access);
-	else(entry->kind == E_funEntry)
+	else if(entry->kind == E_funEntry)
 		Tr_printLevel(entry->u.fun.level);
 }
+#endif
 
-void SEM_transProg(A_exp exp, bool test_activation_records) {
+void SEM_transProg(A_exp exp) {
 	S_table tenv = E_base_tenv();
 	S_table venv = E_base_venv();
 	transExp(Tr_outermost(), venv, tenv, exp);
-	if(test_activation_records) {
-		printf("====== Activation record ======\n");
-		S_dump(venv, show_activation_records);
-		printf("===============================\n")
-	}
+#ifdef TEST_ACTIVATION_RECORDS
+	printf("====== Activation record ======\n");
+	S_dump(venv, show_activation_records);
+	printf("===============================\n");
+#endif
 }
 
 static struct expty transVar(Tr_level level, S_table venv, S_table tenv, A_var v) {
@@ -288,7 +293,7 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 		case A_forExp: {
 			for_while = 1;
 			S_beginScope(venv);
-			S_enter(venv, e->u.forr.var, E_VarEntry(Tr_allocLocal(level, TRUE), Ty_Int()));
+			S_enter(venv, e->u.forr.var, E_VarEntry(NULL, Ty_Int()));
 			struct expty et = transExp(level, venv, tenv, e->u.forr.lo);
 			if(et.ty != Ty_Int()) {
 				EM_error(e->pos, "for's lo must be int");
@@ -317,13 +322,17 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 			return expTy(NULL, Ty_Void());
 		}
 		case A_letExp: {
+#ifndef TEST_ACTIVATION_RECORDS
 			S_beginScope(venv);
+#endif
 			S_beginScope(tenv);
 			for(A_decList dl = e->u.let.decs; dl; dl = dl->tail)
 				transDec(level, venv, tenv, dl->head);
 			struct expty et = transExp(level, venv, tenv, e->u.let.body);
 			S_endScope(tenv);
+#ifndef TEST_ACTIVATION_RECORDS
 			S_endScope(venv);
+#endif
 			return et;
 		}
 		case A_arrayExp: {
@@ -466,20 +475,25 @@ static void transDec(Tr_level level, S_table venv, S_table tenv, A_dec d) {
 				S_enter(venv, f->name, E_FunEntry(newlevel, name, tl, ty));
 			}
 			for(A_fundecList fl = d->u.function; fl; fl = fl->tail) {
+#ifndef TEST_ACTIVATION_RECORDS
 				S_beginScope(venv);
+#endif
 				A_fundec f = fl->head;
 				E_enventry ee = S_look(venv, f->name);
 				A_fieldList l;
 				Tr_level newlevel = ee->u.fun.level;
-				for(l = f->params; l; l = l->tail) {
+				Tr_accessList aList = Tr_formals(newlevel);
+				for(l = f->params; l; l = l->tail, aList = aList->tail) {
 					Ty_ty ty = actual_ty(S_look(tenv, l->head->typ));
 					if(!ty) {
 						break;
 					}
-					S_enter(venv, l->head->name, E_VarEntry(Tr_allocLocal(newlevel, TRUE), ty));
+					S_enter(venv, l->head->name, E_VarEntry(aList->head, ty));
 				}
 				if(l) {
+#ifndef TEST_ACTIVATION_RECORDS
 					S_endScope(venv);
+#endif
 					continue;
 				}
 				struct expty et = transExp(newlevel, venv, tenv, f->body);
@@ -487,7 +501,9 @@ static void transDec(Tr_level level, S_table venv, S_table tenv, A_dec d) {
 					EM_error(d->pos, "function declaration result's type does not match body");
 					continue;
 				}
+#ifndef TEST_ACTIVATION_RECORDS
 				S_endScope(venv);
+#endif
 			}
 		}
 		break;

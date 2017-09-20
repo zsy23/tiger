@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include "util.h"
+#include "symbol.h"
+#include "temp.h"
 #include "frame.h"
 
 #define F_WORD_SIZE 8
