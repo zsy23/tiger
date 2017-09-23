@@ -1,11 +1,13 @@
 #include <stdio.h>
+#include <assert.h>
 #include "util.h"
 #include "symbol.h"
 #include "temp.h"
 #include "frame.h"
 
-#define F_WORD_SIZE 8
 #define F_ARG_REG 6
+
+const int F_wordSize = 8;
 
 struct F_frame_ {
     Temp_label name;
@@ -117,4 +119,22 @@ F_access F_allocLocal(F_frame f, bool escape) {
         return InFrame(-f->locals * F_WORD_SIZE);
     else
         return InReg(Temp_newtemp());
+}
+
+Temp_temp F_fp = NULL;
+Temp_temp F_FP() {
+	if(!F_fp)
+		F_fp = Temp_newtemp();
+
+	return F_fp;
+}
+
+T_exp F_Exp(F_access acc, T_exp framePtr) {
+	switch(acc->kind) {
+		case inFrame:
+			return T_Mem(T_Binop(T_plus, framePtr, CONST(acc->u.offset)));
+		case inReg:
+			return T_Temp(acc->u.reg);
+	}
+	assert(0);
 }

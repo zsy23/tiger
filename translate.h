@@ -1,4 +1,4 @@
-typedef void *Tr_exp;
+typedef struct Tr_exp_ *Tr_exp;
 
 typedef struct Tr_level_ *Tr_level;
 typedef struct Tr_access_ *Tr_access;
