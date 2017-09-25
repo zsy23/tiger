@@ -202,6 +202,10 @@ void Tr_procEntryExit(Tr_level level, Tr_exp body, Tr_accessList formals) {
 	Tr_fragList = F_FragList(F_ProcFrag(stm, level->frame), Tr_fragList);
 }
 
+void Tr_AddStrFrag(string str) {
+    Tr_fragList = F_FragList(F_StringFrag(Temp_namedlabel(str), str), Tr_fragList);
+}
+
 F_fragList Tr_getResult() {
 	return Tr_fragList;
 }

@@ -20,22 +20,7 @@ Tr_access Tr_allocLocal(Tr_level level, bool escape);
 
 void Tr_procEntryExit(Tr_level level, Tr_exp body, Tr_accessList formals);
 F_fragList Tr_getResult();
-/*
-struct Cx {
-	patchList trues;
-	patchList falses;
-	T_stm stm;
-};
 
-struct Tr_exp_ {
-	enum {Tr_ex, Tr_nx, Tr_cx} kind;
-	union {
-		T_exp ex;
-		T_stm nx;
-		struct Cx cx;
-	} u;
-};
-*/
 Tr_exp Tr_simpleVar(Tr_access access, Tr_level level);
 Tr_exp Tr_fieldVar(Tr_exp exp, int offset);
 Tr_exp Tr_subscriptVar(Tr_exp var, Tr_exp index);

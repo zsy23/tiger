@@ -138,13 +138,14 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 			return transVar(level, venv, tenv, e->u.var);
 		}
 		case A_nilExp: {
-			return expTy(NULL, Ty_Nil());
+			return expTy(Tr_Ex(T_Const(0)), Ty_Nil());
 		}
 		case A_intExp: {
-			return expTy(NULL, Ty_Int());
+			return expTy(Tr_Ex(T_Const(e->u.intt)), Ty_Int());
 		}
 		case A_stringExp: {
-			return expTy(NULL, Ty_String());
+            Tr_AddStrFrag(e->u.stringg);
+			return expTy(Tr_Ex(T_Name(Temp_namedlabel(e->u.stringg))), Ty_String());
 		}
 		case A_callExp: {
 			E_enventry ee = S_look(venv, e->u.call.func);
