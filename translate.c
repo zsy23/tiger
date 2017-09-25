@@ -194,3 +194,49 @@ static struct Cx unCx(Tr_exp e) {
 	}
 	assert(0);
 }
+
+F_fragList Tr_fragList = NULL;
+
+void Tr_procEntryExit(Tr_level level, Tr_exp body, Tr_accessList formals) {
+	T_stm stm = F_procEntryExit1(level->frame, T_Exp(body));
+	Tr_fragList = F_FragList(F_ProcFrag(stm, level->frame), Tr_fragList);
+}
+
+F_fragList Tr_getResult() {
+	return Tr_fragList;
+}
+
+Tr_exp Tr_simpleVar(Tr_access access, Tr_level level) {
+	T_exp fp = NULL;	
+	if(level == access->level)
+		fp = T_Temp(F_FP());
+	else {
+		int offset = F_AccOffset(F_formals(level->frame)->head);
+		fp = T_Mem(T_Binop(T_plus, T_Const(offset), T_Temp(F_FP())));
+		for(level = level->parent; level != NULL && level != access->level; level = level->parent) {
+			offset = F_AccOffset(F_formals(level->frame)->head);
+			exp = T_Mem(T_Binop(T_plus, T_Const(offset), exp));
+		}
+		assert(level != NULL);
+	}
+
+	T_exp exp = F_Exp(acess->access, fp);
+
+	return Tr_Ex(exp);
+}
+
+Tr_exp Tr_fieldVar(Tr_exp var, int offset) {
+	assert(var->kind == Tr_ex);
+	T_exp e = T_Binop(T_mul, T_Const(F_GetWordSize()), T_Const(offset));
+	T_exp exp = T_Mem(T_Binop(T_plus, e, T_Mem(var->u.ex)));
+
+	return Tr_Ex(exp);
+}
+
+Tr_exp Tr_subscriptVar(Tr_exp var, Tr_exp index) {
+	assert(var->kind == Tr_ex && index->kind == Tr_ex);
+	T_exp e = T_Binop(T_mul, T_Const(F_GetWordSize()), index->u.ex);
+	T_exp exp = T_Mem(T_Binop(T_plus, e, T_Mem(var->u.ex)));
+
+	return Tr_Ex(exp);
+}

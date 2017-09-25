@@ -9,7 +9,7 @@
 #include "env.h"
 #include "semant.h"
 
-#define TEST_ACTIVATION_RECORDS
+//#define TEST_ACTIVATION_RECORDS
 
 static int for_while = 0;
 
@@ -49,34 +49,44 @@ static void show_activation_records(S_symbol sym, E_enventry entry) {
 }
 #endif
 
-void SEM_transProg(A_exp exp) {
+F_fragList SEM_transProg(A_exp exp) {
 	S_table tenv = E_base_tenv();
 	S_table venv = E_base_venv();
-	transExp(Tr_outermost(), venv, tenv, exp);
+	struct expty e = transExp(Tr_outermost(), venv, tenv, exp);
 #ifdef TEST_ACTIVATION_RECORDS
 	printf("====== Activation record ======\n");
 	S_dump(venv, show_activation_records);
 	printf("===============================\n");
 #endif
+	if(e.exp == NULL)
+		return NULL;
+	Tr_procEntryExit(Tr_outermost(), e.exp, NULL);
+
+	return Tr_getResult();
 }
 
 static struct expty transVar(Tr_level level, S_table venv, S_table tenv, A_var v) {
 	switch(v->kind) {
 		case A_simpleVar: {
 			E_enventry e = S_look(venv, v->u.simple);
-			if(e && e->kind == E_varEntry)
-				return expTy(NULL, e->u.var.ty);
+			if(e && e->kind == E_varEntry) {
+				Tr_exp exp = Tr_simpleVar(e->u.var.access, level);
+				return expTy(exp, e->u.var.ty);
+			}
 			EM_error(v->pos, "undefined variable %s", S_name(v->u.simple));
 			return expTy(NULL, Ty_Void());
 		}
 		case A_fieldVar: {
 			struct expty et = transVar(level, venv, tenv, v->u.field.var);
 			if(et.ty->kind == Ty_record) {
-				for(Ty_fieldList fl = et.ty->u.record; fl != NULL; fl = fl->tail)
+				int offset = 0;
+				for(Ty_fieldList fl = et.ty->u.record; fl != NULL; fl = fl->tail, ++offset)
 					if(fl->head->name == v->u.field.sym) {
 						Ty_ty ty = actual_ty(fl->head->ty);
-						if(ty)
-							return expTy(NULL, ty);
+						if(ty) {
+							Tr_exp exp = Tr_fieldVar(et.exp, offset);
+							return expTy(exp, ty);
+						}
 						else {
 							EM_error(v->pos, "undefined field type %s", S_name(v->u.field.sym));
 							return expTy(NULL, Ty_Void());
@@ -96,8 +106,10 @@ static struct expty transVar(Tr_level level, S_table venv, S_table tenv, A_var v
 				struct expty eet = transExp(level, venv, tenv, v->u.subscript.exp);
 				if(eet.ty->kind == Ty_int) {
 					Ty_ty ty = actual_ty(vet.ty->u.array);
-					if(ty)
-						return expTy(NULL, ty);
+					if(ty) {
+						Tr_exp exp = Tr_subscriptVar(vet.exp, eet.exp);
+						return expTy(exp, ty);
+					}
 					else {
 						EM_error(v->pos, "undefined array type");
 						return expTy(NULL, Ty_Void());

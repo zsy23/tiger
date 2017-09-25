@@ -129,6 +129,14 @@ Temp_temp F_FP() {
 	return F_fp;
 }
 
+Temp_temp F_rv = NULL;
+Temp_temp F_RV() {
+	if(!F_rv)
+		F_rv = Temp_newtemp();
+
+	return F_rv;
+}
+
 T_exp F_Exp(F_access acc, T_exp framePtr) {
 	switch(acc->kind) {
 		case inFrame:
@@ -137,4 +145,44 @@ T_exp F_Exp(F_access acc, T_exp framePtr) {
 			return T_Temp(acc->u.reg);
 	}
 	assert(0);
+}
+
+T_stm F_procEntryExit1(F_frame frame, T_stm stm) {
+	return stm;
+}
+
+F_frag F_StringFrag(Temp_label label, string str) {
+	F_frag frag = checked_malloc(sizeof(*frag));
+	frag->kind = F_stringFrag;
+	frag->u.stringg.label = label;
+	frag->u.stringg.str = str;
+
+	return frag;
+}
+
+F_frag F_ProcFrag(T_stm body, F_frame frame) {
+	F_frag frag = checked_malloc(sizeof(*frag));
+	frag->kind = F_procFrag;
+	frag->u.proc.body = body;
+	frag->u.proc.frame = frame;
+
+	return frag;
+}
+
+F_fragList F_FragList(F_frag head, F_fragList tail) {
+	F_fragList list = checked_malloc(sizeof(*list));
+	list->head = head;
+	list->tail = tail;
+
+	return list;
+}
+
+int F_AccOffset(F_access access) {
+	assert(access->kind == inFrame);
+
+	return access->u.offset;
+}
+
+int F_GetWordSize() {
+	return F_wordSize;
 }
