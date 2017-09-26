@@ -49,3 +49,5 @@ F_fragList F_FragList(F_frag head, F_fragList tail);
 
 int F_AccOffset(F_access access);
 int F_GetWordSize();
+
+T_exp F_externalCall(string s, T_expList args);

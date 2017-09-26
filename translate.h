@@ -1,5 +1,12 @@
 typedef struct Tr_exp_ *Tr_exp;
 
+typedef struct Tr_expList_ *Tr_expList;
+struct Tr_expList_ {
+	Tr_exp head;
+	Tr_expList tail;
+};
+Tr_expList Tr_ExpList(Tr_exp head, Tr_expList tail);
+
 typedef struct Tr_level_ *Tr_level;
 typedef struct Tr_access_ *Tr_access;
 
@@ -24,3 +31,16 @@ F_fragList Tr_getResult();
 Tr_exp Tr_simpleVar(Tr_access access, Tr_level level);
 Tr_exp Tr_fieldVar(Tr_exp exp, int offset);
 Tr_exp Tr_subscriptVar(Tr_exp var, Tr_exp index);
+Tr_exp Tr_nilExp();
+Tr_exp Tr_intExp(int i);
+Tr_exp Tr_stringExp(string str);
+Tr_exp Tr_callExp(Temp_label label, Tr_expList args);
+Tr_exp Tr_opExp(A_oper op, Tr_exp left, Tr_exp right);
+Tr_exp Tr_strCmp(A_oper op, Tr_exp left, Tr_exp right);
+Tr_exp Tr_recordExp(int n, Tr_expList args);
+Tr_exp Tr_seqExp(Tr_expList seq);
+Tr_exp Tr_assignExp(Tr_exp left, Tr_exp right);
+Tr_exp Tr_ifExp(Tr_exp iff, Tr_exp then, Tr_exp elsee);
+Tr_exp Tr_whileExp(Tr_exp test, Tr_exp body, Temp_label done);
+Tr_exp Tr_breakExp(Temp_label done);
+Tr_exp Tr_arrayExp(Tr_exp size, Tr_exp init);

@@ -186,3 +186,7 @@ int F_AccOffset(F_access access) {
 int F_GetWordSize() {
 	return F_wordSize;
 }
+
+T_exp F_externalCall(string s, T_expList args) {
+	return T_Call(T_Name(Temp_namedlabel(s)), args);
+}

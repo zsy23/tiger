@@ -16,6 +16,14 @@ struct Tr_access_ {
 	F_access access;
 };
 
+Tr_expList Tr_ExpList(Tr_exp head, Tr_expList tail) {
+	Tr_expList list = checked_malloc(sizeof(*list));
+	list->head = head;
+	list->tail = tail;
+
+	return list;
+}
+
 static Tr_level Tr_Level(Tr_level parent, F_frame frame) {
     Tr_level level = checked_malloc(sizeof(*level));
     level->parent = parent;
@@ -103,6 +111,16 @@ static patchList PatchList(Temp_label *head, patchList tail) {
 static void doPatch(patchList tList, Temp_label label) {
 	for(; tList; tList = tList->tail)
 		*(tList->head) = label;
+}
+
+static void joinPatch(patchList first, patchList second) {
+	if(!first)
+		return second;
+	patchList join = first;
+	for(; first->tail; first = first->tail);
+	first->tail = second;
+
+	return join;
 }
 
 struct Cx {
@@ -202,10 +220,6 @@ void Tr_procEntryExit(Tr_level level, Tr_exp body, Tr_accessList formals) {
 	Tr_fragList = F_FragList(F_ProcFrag(stm, level->frame), Tr_fragList);
 }
 
-void Tr_AddStrFrag(string str) {
-    Tr_fragList = F_FragList(F_StringFrag(Temp_namedlabel(str), str), Tr_fragList);
-}
-
 F_fragList Tr_getResult() {
 	return Tr_fragList;
 }
@@ -230,17 +244,198 @@ Tr_exp Tr_simpleVar(Tr_access access, Tr_level level) {
 }
 
 Tr_exp Tr_fieldVar(Tr_exp var, int offset) {
-	assert(var->kind == Tr_ex);
 	T_exp e = T_Binop(T_mul, T_Const(F_GetWordSize()), T_Const(offset));
-	T_exp exp = T_Mem(T_Binop(T_plus, e, T_Mem(var->u.ex)));
+	T_exp exp = T_Mem(T_Binop(T_plus, e, T_Mem(unEx(var))));
 
 	return Tr_Ex(exp);
 }
 
 Tr_exp Tr_subscriptVar(Tr_exp var, Tr_exp index) {
-	assert(var->kind == Tr_ex && index->kind == Tr_ex);
-	T_exp e = T_Binop(T_mul, T_Const(F_GetWordSize()), index->u.ex);
-	T_exp exp = T_Mem(T_Binop(T_plus, e, T_Mem(var->u.ex)));
+	T_exp e = T_Binop(T_mul, T_Const(F_GetWordSize()), unEx(index));
+	T_exp exp = T_Mem(T_Binop(T_plus, e, T_Mem(unEx(var))));
+
+	return Tr_Ex(exp);
+}
+
+Tr_exp Tr_nilExp() {
+	return Tr_Ex(T_Const(0));
+}
+
+Tr_exp tr_intExp(int i) {
+	return Tr_Ex(T_Const(e->u.intt));
+}
+
+Tr_exp Tr_stringExp(string str) {
+	Tr_fragList = F_FragList(F_StringFrag(Temp_namedlabel(str), str), Tr_fragList);
+	
+	return Tr_Ex(T_Name(Temp_namedlabel(str)));
+}
+
+Tr_exp Tr_callExp(Temp_label label, Tr_expList args) {
+	T_expList list = T_ExpList(T_Temp(F_FP()), NULL);
+	for(; args; args = args->tail)
+		list = T_ExpList(unEx(args->head), list);
+
+	return Tr_Ex(T_Call(T_Name(label), list));
+}
+
+Tr_exp Tr_opExp(A_oper op, Tr_exp left, Tr_exp right) {
+	T_binOp bop;
+	T_relOp rop;
+	switch(op) {
+	case A_plusOp:
+		bop = T_plus;
+	case A_minusOp:
+		bop = T_minus;
+	case A_timesOp:
+		bop = T_mul;
+	case A_divideOp:
+		bop = T_div;
+		return Tr_Ex(T_Binop(bop, unEx(left), unEx(right)));
+	case A_eqOp:
+		rop = T_eq;
+	case A_neqOp:
+		rop = T_ne;
+	case A_ltOp:
+		rop = T_lt;
+	case A_leOp:
+		rop = T_le;
+	case A_gtOp:
+		rop = T_gt;
+	case A_geOp:
+		rop = T_ge;
+		T_stm stm = T_Cjump(rop, unEx(left), unEx(right), NULL, NULL);
+		patchList trues = PatchList(&stm->u.CJUMP.true, NULL);
+		patchList falses = PatchList(&stm->u.CJUMP.false, NULL);
+		return Tr_Cx(trues, falses, stm);
+	}
+	assert(0);
+}
+
+Tr_exp Tr_strCmp(A_oper op, Tr_exp left, Tr_exp right) {
+	switch(op) {
+	case A_eqOp:
+		T_exp r = F_externalCall(String("stringEqual"), T_ExpList(left->u.ex, T_ExpList(right->u.ex, NULL)));
+		T_stm stm = T_Cjump(T_eq, r, T_Const(1), NULL, NULL);
+		patchList trues = PatchList(&stm->u.CJUMP.true, NULL);
+		patchList falses = PatchList(&stm->u.CJUMP.false, NULL);
+		return Tr_Cx(trues, falses, stm);
+	case A_neqOp:
+		T_exp r = F_externalCall(String("stringEqual"), T_ExpList(left->u.ex, T_ExpList(right->u.ex, NULL)));
+		T_stm stm = T_Cjump(T_eq, r, T_Const(0), NULL, NULL);
+		patchList trues = PatchList(&stm->u.CJUMP.true, NULL);
+		patchList falses = PatchList(&stm->u.CJUMP.false, NULL);
+		return Tr_Cx(trues, falses, stm);
+}
+
+Tr_exp Tr_recordExp(int n, Tr_expList args) {
+	Temp_temp r = Temp_newtemp();
+	T_exp p = F_externalCall(String("malloc"), T_ExpList(T_Const(n), NULL));
+	T_exp exp = T_Eseq(T_Seq(T_Move(T_Temp(r), p), NULL), T_Temp(r));
+	T_stm s = exp->u.ESEQ.stm;
+	T_exp pos;
+	for(int offset = 0; args && args->tail; args = args->tail, ++offset) {
+		pos = T_Binop(T_plus, T_Binop(T_mul, T_Const(offset), T_Const(F_GetWordSize())),T_Temp(r));
+		s->u.SEQ.right = T_Seq(T_Move(T_Mem(pos), unEx(args->head)), NULL);
+		s = s->u.SEQ.right;
+	}
+	if(args) {
+		pos = T_Binop(T_plus, T_Binop(T_mul, T_Const(offset), T_Const(F_GetWordSize())),T_Temp(r));
+		s->u.SEQ.right = T_Move(T_Mem(pos), unEx(args->head));
+	}
+	else
+		exp = T_Eseq(T_Move(T_Temp(r), p), T_Temp(r));
+
+	return Tr_Ex(exp);
+}
+
+Tr_exp Tr_seqExp(Tr_expList seq) {
+	if(!seq)
+		return Tr_Nx(T_Exp(T_Const(0)));
+
+	if(!seq->tail) {
+		if(seq->head->kind == Tr_nx)
+			return seq->head;
+		else
+			return Tr_Ex(unEx(seq->head));
+	}
+
+	if(!seq->tail->tail) {
+		if(seq->tail->head->kind == Tr_nx)
+			return Tr_Nx(T_Seq(unNx(seq->head), seq->tail->head));
+		else
+			return Tr_Ex(T_Eseq(unNx(seq->head), unEx(seq->tail->head)));
+	}
+
+	T_stm stm = T_Seq(unNx(seq->head), NULL);
+	for(seq = seq->tail; seq->tail->tail; seq = seq->tail) {
+		stm->u.SEQ.right = T_Seq(unNx(seq->head), NULL);
+		stm = stm->u.SEQ.right;
+	}
+	stm->u.SEQ.right = unNx(seq->head);
+	if(seq->tail->head->kind == Tr_nx)
+		return Tr_Nx(T_Seq(stm, seq->tail->head));
+	else
+		return Tr_Ex(T_Eseq(stm, unEx(seq->tail->head)));
+}
+
+Tr_exp Tr_assignExp(Tr_exp left, Tr_exp right) {
+	T_stm stm = T_Move(unEX(left), unEx(right));
+
+	return Tr_Nx(stm);
+}
+
+Tr_exp Tr_ifExp(Tr_exp iff, Tr_exp then, Tr_exp elsee) {
+	Temp_label t = Temp_newlabel(), f = Temp_newlabel(), join = Temp_newlabel();
+	struct Cx if_cx = unCx(iff);
+	doPatch(if_cx.trues, t);
+	doPatch(if_cx.falses, f);
+	if(then->kind == Tr_nx) {
+		T_stm stm = T_Seq(if_cx.stm, 
+						T_Seq(T_Label(t), 
+							T_Seq(then->u.nx, 
+								T_Seq(T_Jump(T_Name(join), Temp_labelList(join, NULL)), 
+									T_Seq(T_Label(f), 
+										T_Seq(elsee->u.nx, 
+											T_Label(join)))))));
+		return Tr_Nx(stm);
+	}
+	else {
+		Temp_temp r = Temp_newtemp();
+		T_exp exp = T_Eseq(if_cx.stm,
+						T_Eseq(T_Label(t),
+							T_Eseq(T_Move(T_Temp(r), unEx(then)), 
+								T_Eseq(T_Jump(T_Name(join), Temp_labelList(join, NULL),
+									T_Eseq(T_Label(f), 
+										T_Eseq(T_Move(T_Temp(r), unEx(elsee), 
+											T_Eseq(T_Label(join), T_Temp(r))))))))));
+		return Tr_Ex(exp);
+	}
+}
+
+Tr_exp Tr_whileExp(Tr_exp test, Tr_exp body, Temp_label done) {
+	Temp_label start = Temp_newlabel(), t = Temp_newlabel();
+	struct Cx test_cx = unCx(test);
+	doPatch(test_cx.trues, t);
+	doPatch(test_cx.falses, done);
+	T_stm stm = T_Seq(T_Label(start), 
+					T_Seq(test_cx.stm, 
+						T_Seq(T_Label(t),
+							T_Seq(unNx(body),
+								T_Seq(T_Jump(T_Name(start), Temp_labelList(start, NULL)),
+									T_Label(done))))));
+
+	return Tr_Nx(stm);
+}
+
+Tr_exp Tr_breakExp(Temp_label done) {
+	return Tr_Nx(T_Jump(T_Name(done), Temp_labelList(done, NULL)));
+}
+
+Tr_exp Tr_arrayExp(Tr_exp size, Tr_exp init) {
+	Temp_temp r = Temp_newtemp();
+	T_exp p = F_externalCall(String("initArray"), T_ExpList(unEx(size), T_ExpList(unEx(init), NULL)));
+	T_exp exp = T_Eseq(T_Move(T_Temp(r), p), T_Temp(r));
 
 	return Tr_Ex(exp);
 }
