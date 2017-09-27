@@ -35,7 +35,7 @@ static Ty_ty actual_ty(Ty_ty ty) {
 
 static struct expty transVar(Tr_level level, S_table venv, S_table tenv, A_var v);
 static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e, Temp_label done);
-static void			transDec(Tr_level level, S_table venv, S_table tenv, A_dec d, Temp_label done);
+static Tr_exp transDec(Tr_level level, S_table venv, S_table tenv, A_dec d, Temp_label done);
 static Ty_ty		transTy (S_table tenv, A_ty t);
 
 #ifdef TEST_ACTIVATION_RECORDS
@@ -326,27 +326,28 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 			for_while = 1;
 			S_beginScope(venv);
 			S_enter(venv, e->u.forr.var, E_VarEntry(NULL, Ty_Int()));
-			struct expty et = transExp(level, venv, tenv, e->u.forr.lo, done);
-			if(et.ty != Ty_Int()) {
+			struct expty lo_et = transExp(level, venv, tenv, e->u.forr.lo, done);
+			if(lo_et.ty != Ty_Int()) {
 				EM_error(e->pos, "for's lo must be int");
 				for_while = 0;
 				return expTy(NULL, Ty_Void());
 			}
-			et = transExp(level, venv, tenv, e->u.forr.hi, done);
-			if(et.ty != Ty_Int()) {
+			struct expty hi_et = transExp(level, venv, tenv, e->u.forr.hi, done);
+			if(hi_et.ty != Ty_Int()) {
 				EM_error(e->pos, "for's hi must be int");
 				for_while = 0;
 				return expTy(NULL, Ty_Void());
 			} 
-			et = transExp(level, venv, tenv, e->u.forr.body, done);
-			if(et.ty != Ty_Void()) {
+			Temp_label new_done = Temp_newlabel();
+			struct expty bd_et = transExp(level, venv, tenv, e->u.forr.body, new_done);
+			if(bd_et.ty != Ty_Void()) {
 				EM_error(e->pos, "for's body must produce no value");
 				for_while = 0;
 				return expTy(NULL, Ty_Void());
 			} 
 			S_endScope(venv);
 			for_while = 0;
-			return expTy(NULL, Ty_Void());
+			return expTy(Tr_forExp(lo_et.exp, hi_et.exp, bd_et.exp, new_done), Ty_Void());
 		}
 		case A_breakExp: {
 			if(!for_while)
@@ -358,14 +359,24 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 			S_beginScope(venv);
 #endif
 			S_beginScope(tenv);
-			for(A_decList dl = e->u.let.decs; dl; dl = dl->tail)
-				transDec(level, venv, tenv, dl->head, done);
+			Tr_expList list = NULL, hdr = NULL;
+			int first = 1;
+			for(A_decList dl = e->u.let.decs; dl; dl = dl->tail) {
+				Tr_exp exp = transDec(level, venv, tenv, dl->head, done);
+				if(exp->kind == Tr_nx) {
+					list = Tr_ExpList(exp, list);
+					if(first) {
+						hdr = list;
+						first = 0;
+					}
+				}
+			}
 			struct expty et = transExp(level, venv, tenv, e->u.let.body, done);
 			S_endScope(tenv);
 #ifndef TEST_ACTIVATION_RECORDS
 			S_endScope(venv);
 #endif
-			return et;
+			return expTy(Tr_letExp(hdr, et.exp), et.ty);
 		}
 		case A_arrayExp: {
 			Ty_ty ty = actual_ty(S_look(tenv, e->u.array.typ));
@@ -395,7 +406,7 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 	}
 }
 
-static void transDec(Tr_level level, S_table venv, S_table tenv, A_dec d, Temp_label done) {
+static struct expty transDec(Tr_level level, S_table venv, S_table tenv, A_dec d, Temp_label done) {
 	switch(d->kind) {
 		case A_typeDec: {
 			int pass = 0;
@@ -429,10 +440,12 @@ static void transDec(Tr_level level, S_table venv, S_table tenv, A_dec d, Temp_l
 				Ty_ty ty = S_look(tenv, n->name);
 				ty->u.name.ty = transTy(tenv, n->ty);
 			}
+
+			return Tr_noopExp();
 		}
-		break;
 		case A_varDec: {
 			struct expty et = transExp(level, venv, tenv, d->u.var.init, done);
+			E_enventry ee = NULL;
 			if(d->u.var.typ) {
 				Ty_ty ty = actual_ty(S_look(tenv, d->u.var.typ));
 				if(!ty) {
@@ -443,17 +456,20 @@ static void transDec(Tr_level level, S_table venv, S_table tenv, A_dec d, Temp_l
 					EM_error(d->pos, "variable declaration's type does not match init");
 					break;
 				}
-				S_enter(venv, d->u.var.var, E_VarEntry(Tr_allocLocal(level, TRUE), ty));
+				ee = E_VarEntry(Tr_allocLocal(level, TRUE), ty);
+				S_enter(venv, d->u.var.var, ee);
 			}
 			else {
 				if(et.ty->kind == Ty_nil) {
 					EM_error(d->pos, "nil must be in a context where its type can be determined");
 					break;
 				}
-				S_enter(venv, d->u.var.var, E_VarEntry(Tr_allocLocal(level, TRUE), et.ty));
+				ee = E_VarEntry(Tr_allocLocal(level, TRUE), et.ty);
+				S_enter(venv, d->u.var.var, ee);
 			}
+
+			return Tr_assignExp(Tr_simpleVar(ee->u.var.access, level), et.exp);
 		}
-		break;
 		case A_functionDec: {
 			S_table tmp = S_empty();
 			for(A_fundecList fl = d->u.function; fl; fl = fl->tail) {
@@ -536,12 +552,15 @@ static void transDec(Tr_level level, S_table venv, S_table tenv, A_dec d, Temp_l
 #ifndef TEST_ACTIVATION_RECORDS
 				S_endScope(venv);
 #endif
+
+				Tr_procEntryExit(newlevel, et.exp, Tr_formals(newlevel));
 			}
+
+			return Tr_noopExp();
 		}
-		break;
 		default:
 		EM_error(d->pos, "unknown declaration type");
-		break;
+		assert(0);
 	}
 }
 

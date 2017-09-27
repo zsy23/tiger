@@ -439,3 +439,43 @@ Tr_exp Tr_arrayExp(Tr_exp size, Tr_exp init) {
 
 	return Tr_Ex(exp);
 }
+
+Tr_exp Tr_noopExp() {
+	return Tr_Ex(T_Const(0));
+}
+
+Tr_exp Tr_letExp(Tr_expList decs, Tr_exp body) {
+	if(body->kind == Tr_nx) {
+		T_stm stm = T_Seq(unNx(decs->head), NULL);
+		T_stm p = stm;
+		for(decs = decs->tail; decs; decs = decs->tail) {
+			p->u.SEQ.right = T_Seq(unNx(decs->head), NULL);
+			p = p->u.SEQ.right;
+		}
+		p->u.SEQ.right = body->u.nx;
+
+		return Tr_Nx(stm);
+	}
+	else {
+		T_exp exp = T_Eseq(unNx(decs->head), NULL);
+		T_exp p = exp;
+		for(decs = decs->tail; decs; decs = decs->tail) {
+			p->u.ESEQ.exp = T_ESeq(unNx(decs->head), NULL);
+			p = p->u.ESEQ.exp;
+		}
+		p->u.ESEQ.exp = unEx(body);
+
+		return Tr_Ex(exp);
+	}
+}
+
+Tr_exp Tr_forExp(Tr_exp lo, Tr_exp hi, Tr_exp body, Temp_label done) {
+	Temp_temp i = Temp_newtemp(), limit = Temp_newtemp();
+	Tr_exp test = Tr_opExp(A_leOp, i, limit);		
+	T_stm wbody = T_Seq(unNx(body), unNx(Tr_assignExp(Tr_Ex(T_Temp(i), T_Binop(T_plus, T_Temp(i), T_Const(1))))));
+	T_stm stm = T_Seq(T_Move(T_Temp(i), unEx(lo)),
+					T_Seq(T_Move(T_Temp(limit), unEx(hi)), 
+						unNx(Tr_whileExp(test, Tr_Nx(wbody), done))));
+
+	return Tr_Nx(stm);
+}
