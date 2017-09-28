@@ -8,8 +8,8 @@ struct F_accessList_ {
 };
 F_accessList F_AccessList(F_access head, F_accessList tail);
 
-void F_printAccess(F_access access);
-void F_printFrame(F_frame frame);
+void F_printAccess(FILE *out, F_access access);
+void F_printFrame(FILE *out, F_frame frame);
 
 F_frame F_newFrame(Temp_label name, U_boolList formals);
 Temp_label F_name(F_frame f);

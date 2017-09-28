@@ -17,8 +17,8 @@ struct Tr_accessList_ {
 };
 Tr_accessList Tr_AccessList(Tr_access head, Tr_accessList tail);
 
-void Tr_printLevel(Tr_level level);
-void Tr_printAccess(Tr_access access);
+void Tr_printLevel(FILE *out, Tr_level level);
+void Tr_printAccess(FILE *out, Tr_access access);
 
 Tr_level Tr_outermost(void);
 Tr_level Tr_newLevel(Tr_level parent, Temp_label name, U_boolList formals);
@@ -27,6 +27,7 @@ Tr_access Tr_allocLocal(Tr_level level, bool escape);
 
 void Tr_procEntryExit(Tr_level level, Tr_exp body, Tr_accessList formals);
 F_fragList Tr_getResult();
+void Tr_printFragList(FILE *out, F_fragList frags);
 
 Tr_exp Tr_simpleVar(Tr_access access, Tr_level level);
 Tr_exp Tr_fieldVar(Tr_exp exp, int offset);

@@ -1,5 +1,5 @@
-a.out: parsetest.o temp.o translate.o amd64frame.o prabsyn.o parse.o y.tab.o lex.yy.o semant.o env.o types.o absyn.o symbol.o table.o errormsg.o util.o
-	cc -g parsetest.o temp.o amd64frame.o translate.o prabsyn.o parse.o y.tab.o lex.yy.o semant.o env.o types.o absyn.o symbol.o table.o errormsg.o util.o 
+a.out: parsetest.o tree.o printtree.o temp.o translate.o amd64frame.o prabsyn.o parse.o y.tab.o lex.yy.o semant.o env.o types.o absyn.o symbol.o table.o errormsg.o util.o
+	cc -g parsetest.o tree.o printtree.o temp.o amd64frame.o translate.o prabsyn.o parse.o y.tab.o lex.yy.o semant.o env.o types.o absyn.o symbol.o table.o errormsg.o util.o 
 
 parsetest.o: parsetest.c
 	cc -g -c parsetest.c
@@ -27,6 +27,12 @@ translate.o: translate.c
 
 temp.o: temp.c
 	cc -g -c temp.c
+
+tree.o: tree.c
+	cc -g -c tree.c
+
+printtree.o: printtree.c
+	cc -g -c printtree.c
 
 amd64frame.o: amd64frame.c
 	cc -g -c amd64frame.c
@@ -56,4 +62,4 @@ util.o: util.c
 	cc -g -c util.c
 
 clean: 
-	rm -f a.out translate.o util.o temp.o parsetest.o amd64frame.o lex.yy.o errormsg.o y.tab.c y.tab.h y.tab.o prabsyn.o parse.o absyn.o symbol.o table.o y.output types.o env.o semant.o absyn
+	rm -f a.out tree.o printtree.o translate.o util.o temp.o parsetest.o amd64frame.o lex.yy.o errormsg.o y.tab.c y.tab.h y.tab.o prabsyn.o parse.o absyn.o symbol.o table.o y.output types.o env.o semant.o absyn tree

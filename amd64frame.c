@@ -3,6 +3,7 @@
 #include "util.h"
 #include "symbol.h"
 #include "temp.h"
+#include "tree.h"
 #include "frame.h"
 
 #define F_ARG_REG 6
@@ -56,22 +57,22 @@ F_accessList F_AccessList(F_access head, F_accessList tail) {
     return list;
 }
 
-void F_printAccess(F_access access) {
+void F_printAccess(FILE *out, F_access access) {
 	if(access->kind == inFrame)
-		printf("InFrame(%d)", access->u.offset);
+		fprintf(out, "InFrame(%d)", access->u.offset);
 	else if(access->kind == inReg)
-		printf("InReg(%d)", Temp_tempnum(access->u.reg));
+		fprintf(out, "InReg(%d)", Temp_tempnum(access->u.reg));
 }
 
-void F_printFrame(F_frame frame) {
-	printf("name: %s\n", Temp_labelstring(frame->name));
-	printf("foramsl:");
+void F_printFrame(FILE *out, F_frame frame) {
+	fprintf(out, "name: %s\n", Temp_labelstring(frame->name));
+	fprintf(out, "foramsl:");
 	for(F_accessList formals = frame->formals; formals; formals = formals->tail) {
-		printf(" ");
-		F_printAccess(formals->head);
+		fprintf(out, " ");
+		F_printAccess(out, formals->head);
 	}
-	printf("\n");
-	printf("locals: %d\n", frame->locals);
+	fprintf(out, "\n");
+	fprintf(out, "locals: %d\n", frame->locals);
 }
 
 F_frame F_newFrame(Temp_label name, U_boolList formals) {
@@ -84,7 +85,7 @@ F_frame F_newFrame(Temp_label name, U_boolList formals) {
             r++;
         }
         else {
-            frame->formals->head = InFrame(f * F_WORD_SIZE);
+            frame->formals->head = InFrame(f * F_wordSize);
             f++;
         }
         F_accessList fList = frame->formals;
@@ -95,7 +96,7 @@ F_frame F_newFrame(Temp_label name, U_boolList formals) {
                 r++;
             }
             else {
-                tmp->head = InFrame(f * F_WORD_SIZE);
+                tmp->head = InFrame(f * F_wordSize);
                 f++;
             }
             fList->tail = tmp;
@@ -116,7 +117,7 @@ F_accessList F_formals(F_frame f) {
 F_access F_allocLocal(F_frame f, bool escape) {
     f->locals++;
     if(escape)
-        return InFrame(-f->locals * F_WORD_SIZE);
+        return InFrame(-f->locals * F_wordSize);
     else
         return InReg(Temp_newtemp());
 }
@@ -140,7 +141,7 @@ Temp_temp F_RV() {
 T_exp F_Exp(F_access acc, T_exp framePtr) {
 	switch(acc->kind) {
 		case inFrame:
-			return T_Mem(T_Binop(T_plus, framePtr, CONST(acc->u.offset)));
+			return T_Mem(T_Binop(T_plus, framePtr, T_Const(acc->u.offset)));
 		case inReg:
 			return T_Temp(acc->u.reg);
 	}

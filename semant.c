@@ -4,6 +4,9 @@
 #include "symbol.h"
 #include "absyn.h"
 #include "types.h"
+#include "temp.h"
+#include "tree.h"
+#include "frame.h"
 #include "translate.h"
 #include "env.h"
 #include "semant.h"
@@ -42,9 +45,9 @@ static Ty_ty		transTy (S_table tenv, A_ty t);
 static void show_activation_records(S_symbol sym, E_enventry entry) {
 	printf("%s:\n", S_name(sym));
 	if(entry->kind == E_varEntry)
-		Tr_printAccess(entry->u.var.access);
+		Tr_printAccess(stdout, entry->u.var.access);
 	else if(entry->kind == E_funEntry)
-		Tr_printLevel(entry->u.fun.level);
+		Tr_printLevel(stdout, entry->u.fun.level);
 }
 #endif
 
@@ -363,12 +366,10 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 			int first = 1;
 			for(A_decList dl = e->u.let.decs; dl; dl = dl->tail) {
 				Tr_exp exp = transDec(level, venv, tenv, dl->head, done);
-				if(exp->kind == Tr_nx) {
-					list = Tr_ExpList(exp, list);
-					if(first) {
-						hdr = list;
-						first = 0;
-					}
+				list = Tr_ExpList(exp, list);
+				if(first) {
+					hdr = list;
+					first = 0;
 				}
 			}
 			struct expty et = transExp(level, venv, tenv, e->u.let.body, done);
@@ -386,7 +387,7 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 					EM_error(e->pos, "array's size must be int");
 					return expTy(NULL, Ty_Void());
 				}
-				struct init_et = transExp(level, venv, tenv, e->u.array.init, done);
+				struct expty init_et = transExp(level, venv, tenv, e->u.array.init, done);
 				Ty_ty aty = actual_ty(ty->u.array);
 				if(aty != init_et.ty) {
 					EM_error(e->pos, "array's init type does not match");
@@ -406,7 +407,7 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 	}
 }
 
-static struct expty transDec(Tr_level level, S_table venv, S_table tenv, A_dec d, Temp_label done) {
+static Tr_exp transDec(Tr_level level, S_table venv, S_table tenv, A_dec d, Temp_label done) {
 	switch(d->kind) {
 		case A_typeDec: {
 			int pass = 0;
@@ -422,14 +423,14 @@ static struct expty transDec(Tr_level level, S_table venv, S_table tenv, A_dec d
 				for(A_nametyList nl = d->u.type; nl; nl = nl->tail) {
 					if(S_look(tmp, nl->head->name) != NULL) {
 						EM_error(d->pos, "same name in the same batch");
-						return;
+						return Tr_noopExp();
 					}
 					S_enter(tmp, nl->head->name, Ty_Void());
 				}
 			}
 			if(!pass) {
 				EM_error(d->pos, "mutual recursive types must pass through record or array");
-				return;
+				return Tr_noopExp();
 			}
 			for(A_nametyList nl = d->u.type; nl; nl = nl->tail) {
 				A_namety n = nl->head;
@@ -475,7 +476,7 @@ static struct expty transDec(Tr_level level, S_table venv, S_table tenv, A_dec d
 			for(A_fundecList fl = d->u.function; fl; fl = fl->tail) {
 				if(S_look(tmp, fl->head->name) != NULL) {
 					EM_error(d->pos, "same name in the same batch");
-					return;
+					return Tr_noopExp();
 				}
 				S_enter(tmp, fl->head->name, Ty_Void());
 			}

@@ -2,7 +2,10 @@
 #include "util.h"
 #include "symbol.h"
 #include "types.h"
+#include "absyn.h"
 #include "temp.h"
+#include "tree.h"
+#include "frame.h"
 #include "translate.h"
 #include "env.h"
 
