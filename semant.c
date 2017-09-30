@@ -11,7 +11,7 @@
 #include "env.h"
 #include "semant.h"
 
-//#define TEST_ACTIVATION_RECORDS
+#define TEST_ACTIVATION_RECORDS
 
 static int for_while = 0;
 
@@ -57,7 +57,7 @@ F_fragList SEM_transProg(A_exp exp) {
 	struct expty e = transExp(Tr_outermost(), venv, tenv, exp, NULL);
 #ifdef TEST_ACTIVATION_RECORDS
 	printf("====== Activation record ======\n");
-	S_dump(venv, show_activation_records);
+	S_dump(venv, (void (*)(S_symbol, void *))show_activation_records);
 	printf("===============================\n");
 #endif
 	if(e.exp == NULL)
@@ -164,10 +164,14 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 							EM_error(tmp_e->pos, "function argument type does not match");
 							return expTy(NULL, Ty_Void());
 						}
-						trel = Tr_ExpList(et.exp, trel);
 						if(first) {
+							trel = Tr_ExpList(et.exp, NULL);
 							hdr = trel;
 							first = 0;
+						}
+						else {
+							trel->tail = Tr_ExpList(et.exp, NULL);
+							trel = trel->tail;
 						}
 					}
 					else {
@@ -240,10 +244,14 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 								EM_error(e->pos, "field %s's type does not match", S_name(ef->name));
 								return expTy(NULL, Ty_Void());
 							}
-							trel = Tr_ExpList(et.exp, trel);
 							if(first) {
+								trel = Tr_ExpList(et.exp, NULL);
 								hdr = trel;
 								first = 0;
+							}
+							else {
+								trel->tail = Tr_ExpList(et.exp, NULL);
+								trel = trel->tail;
 							}
 							break;
 						}
@@ -266,10 +274,14 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 			int first = 1;
 			for(A_expList el = e->u.seq; el; el = el->tail) {
 				et = transExp(level, venv, tenv, el->head, done);
-				trel = Tr_ExpList(et.exp, trel);
 				if(first) {
+					trel = Tr_ExpList(et.exp, NULL);
 					hdr = trel;
 					first = 0;
+				}
+				else {
+					trel->tail = Tr_ExpList(et.exp, NULL);
+					trel = trel->tail;
 				}
 			}
 			return expTy(Tr_seqExp(hdr), et.ty);
@@ -366,10 +378,14 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 			int first = 1;
 			for(A_decList dl = e->u.let.decs; dl; dl = dl->tail) {
 				Tr_exp exp = transDec(level, venv, tenv, dl->head, done);
-				list = Tr_ExpList(exp, list);
 				if(first) {
+					list = Tr_ExpList(exp, NULL);
 					hdr = list;
 					first = 0;
+				}
+				else {
+					list->tail = Tr_ExpList(exp, NULL);
+					list = list->tail;
 				}
 			}
 			struct expty et = transExp(level, venv, tenv, e->u.let.body, done);

@@ -489,11 +489,11 @@ Tr_exp Tr_forExp(Tr_exp lo, Tr_exp hi, Tr_exp body, Temp_label done) {
 }
 
 void Tr_printFragList(FILE *out, F_fragList frags) {
-	for(int i = 0; frags; frags = frags->tail) {
+	for(int i = 0; frags; frags = frags->tail, ++i) {
 		F_frag frag = frags->head;
 		fprintf(out, "frag %d:\n", i);
 		if(frag->kind == F_stringFrag) {
-			fprintf(out, "lable %s: %s\n", Temp_labelstring(frag->u.stringg.label), frag->u.stringg.str);
+			fprintf(out, "lable \"%s\": \"%s\"\n", Temp_labelstring(frag->u.stringg.label), frag->u.stringg.str);
 		}
 		else {
 			if(frag->u.proc.frame)
