@@ -249,14 +249,14 @@ Tr_exp Tr_simpleVar(Tr_access access, Tr_level level) {
 
 Tr_exp Tr_fieldVar(Tr_exp var, int offset) {
 	T_exp e = T_Binop(T_mul, T_Const(F_GetWordSize()), T_Const(offset));
-	T_exp exp = T_Mem(T_Binop(T_plus, e, T_Mem(unEx(var))));
+	T_exp exp = T_Mem(T_Binop(T_plus, e, unEx(var)));
 
 	return Tr_Ex(exp);
 }
 
 Tr_exp Tr_subscriptVar(Tr_exp var, Tr_exp index) {
 	T_exp e = T_Binop(T_mul, T_Const(F_GetWordSize()), unEx(index));
-	T_exp exp = T_Mem(T_Binop(T_plus, e, T_Mem(unEx(var))));
+	T_exp exp = T_Mem(T_Binop(T_plus, e, unEx(var)));
 
 	return Tr_Ex(exp);
 }
@@ -277,10 +277,13 @@ Tr_exp Tr_stringExp(string str) {
 
 Tr_exp Tr_callExp(Temp_label label, Tr_expList args) {
 	T_expList list = T_ExpList(T_Temp(F_FP()), NULL);
-	for(; args; args = args->tail)
-		list = T_ExpList(unEx(args->head), list);
+    T_expList hdr = list;
+	for(; args; args = args->tail) {
+        list->tail = T_ExpList(unEx(args->head), NULL);
+        list = list->tail;
+    }
 
-	return Tr_Ex(T_Call(T_Name(label), list));
+	return Tr_Ex(T_Call(T_Name(label), hdr));
 }
 
 Tr_exp Tr_opExp(A_oper op, Tr_exp left, Tr_exp right) {
@@ -289,30 +292,59 @@ Tr_exp Tr_opExp(A_oper op, Tr_exp left, Tr_exp right) {
 	switch(op) {
 	case A_plusOp:
 		bop = T_plus;
+		return Tr_Ex(T_Binop(bop, unEx(left), unEx(right)));
 	case A_minusOp:
 		bop = T_minus;
+		return Tr_Ex(T_Binop(bop, unEx(left), unEx(right)));
 	case A_timesOp:
 		bop = T_mul;
+		return Tr_Ex(T_Binop(bop, unEx(left), unEx(right)));
 	case A_divideOp:
 		bop = T_div;
 		return Tr_Ex(T_Binop(bop, unEx(left), unEx(right)));
-	case A_eqOp:
+	case A_eqOp: {
 		rop = T_eq;
-	case A_neqOp:
+	    T_stm stm = T_Cjump(rop, unEx(left), unEx(right), NULL, NULL);
+	    patchList trues = PatchList(&stm->u.CJUMP.true, NULL);
+	    patchList falses = PatchList(&stm->u.CJUMP.false, NULL);
+		return Tr_Cx(trues, falses, stm);
+    }
+	case A_neqOp: {
 		rop = T_ne;
-	case A_ltOp:
+	    T_stm stm = T_Cjump(rop, unEx(left), unEx(right), NULL, NULL);
+	    patchList trues = PatchList(&stm->u.CJUMP.true, NULL);
+	    patchList falses = PatchList(&stm->u.CJUMP.false, NULL);
+		return Tr_Cx(trues, falses, stm);
+    }
+    case A_ltOp: {
 		rop = T_lt;
-	case A_leOp:
+	    T_stm stm = T_Cjump(rop, unEx(left), unEx(right), NULL, NULL);
+	    patchList trues = PatchList(&stm->u.CJUMP.true, NULL);
+	    patchList falses = PatchList(&stm->u.CJUMP.false, NULL);
+		return Tr_Cx(trues, falses, stm);
+    }
+	case A_leOp: {
 		rop = T_le;
-	case A_gtOp:
+	    T_stm stm = T_Cjump(rop, unEx(left), unEx(right), NULL, NULL);
+	    patchList trues = PatchList(&stm->u.CJUMP.true, NULL);
+	    patchList falses = PatchList(&stm->u.CJUMP.false, NULL);
+		return Tr_Cx(trues, falses, stm);
+    }
+	case A_gtOp: {
 		rop = T_gt;
-	case A_geOp:
+	    T_stm stm = T_Cjump(rop, unEx(left), unEx(right), NULL, NULL);
+	    patchList trues = PatchList(&stm->u.CJUMP.true, NULL);
+	    patchList falses = PatchList(&stm->u.CJUMP.false, NULL);
+		return Tr_Cx(trues, falses, stm);
+    }
+	case A_geOp: {
 		rop = T_ge;
-		T_stm stm = T_Cjump(rop, unEx(left), unEx(right), NULL, NULL);
-		patchList trues = PatchList(&stm->u.CJUMP.true, NULL);
-		patchList falses = PatchList(&stm->u.CJUMP.false, NULL);
+	    T_stm stm = T_Cjump(rop, unEx(left), unEx(right), NULL, NULL);
+	    patchList trues = PatchList(&stm->u.CJUMP.true, NULL);
+	    patchList falses = PatchList(&stm->u.CJUMP.false, NULL);
 		return Tr_Cx(trues, falses, stm);
 	}
+    }
 	assert(0);
 }
 
@@ -333,6 +365,7 @@ Tr_exp Tr_strCmp(A_oper op, Tr_exp left, Tr_exp right) {
 		return Tr_Cx(trues, falses, stm);
 	}
 	}
+    assert(0);
 }
 
 Tr_exp Tr_recordExp(int n, Tr_expList args) {
@@ -393,18 +426,20 @@ Tr_exp Tr_assignExp(Tr_exp left, Tr_exp right) {
 	return Tr_Nx(stm);
 }
 
-Tr_exp Tr_ifExp(Tr_exp iff, Tr_exp then, Tr_exp elsee) {
+Tr_exp Tr_ifExp(Tr_exp iff, Tr_exp then, Tr_exp elsee, int res) {
 	Temp_label t = Temp_newlabel(), f = Temp_newlabel(), join = Temp_newlabel();
 	struct Cx if_cx = unCx(iff);
 	doPatch(if_cx.trues, t);
 	doPatch(if_cx.falses, f);
-	if(then->kind == Tr_nx) {
+    if(!elsee)
+        elsee = Tr_Nx(T_Exp(T_Const(0)));
+	if(res == 0) {
 		T_stm stm = T_Seq(if_cx.stm, 
 						T_Seq(T_Label(t), 
-							T_Seq(then->u.nx, 
+							T_Seq(unNx(then), 
 								T_Seq(T_Jump(T_Name(join), Temp_LabelList(join, NULL)), 
 									T_Seq(T_Label(f), 
-										T_Seq(elsee->u.nx, 
+										T_Seq(unNx(elsee), 
 											T_Label(join)))))));
 		return Tr_Nx(stm);
 	}

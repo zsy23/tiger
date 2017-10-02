@@ -41,7 +41,7 @@ Tr_exp Tr_strCmp(A_oper op, Tr_exp left, Tr_exp right);
 Tr_exp Tr_recordExp(int n, Tr_expList args);
 Tr_exp Tr_seqExp(Tr_expList seq);
 Tr_exp Tr_assignExp(Tr_exp left, Tr_exp right);
-Tr_exp Tr_ifExp(Tr_exp iff, Tr_exp then, Tr_exp elsee);
+Tr_exp Tr_ifExp(Tr_exp iff, Tr_exp then, Tr_exp elsee, int res);
 Tr_exp Tr_whileExp(Tr_exp test, Tr_exp body, Temp_label done);
 Tr_exp Tr_breakExp(Temp_label done);
 Tr_exp Tr_arrayExp(Tr_exp size, Tr_exp init);

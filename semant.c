@@ -11,7 +11,7 @@
 #include "env.h"
 #include "semant.h"
 
-#define TEST_ACTIVATION_RECORDS
+//#define TEST_ACTIVATION_RECORDS
 
 static int for_while = 0;
 
@@ -317,7 +317,9 @@ static struct expty transExp(Tr_level level, S_table venv, S_table tenv, A_exp e
 				return expTy(NULL, Ty_Void());
 			}
 			
-			return expTy(Tr_ifExp(test_et.exp, then_et.exp, else_et.exp), then_et.ty);
+            Tr_exp exp = Tr_ifExp(test_et.exp, then_et.exp, 
+                    e->u.iff.elsee ? else_et.exp : NULL, (int)(then_et.ty != Ty_Void()));
+			return expTy(exp, then_et.ty);
 		}
 		case A_whileExp: {
 			for_while = 1;
@@ -579,6 +581,7 @@ static Tr_exp transDec(Tr_level level, S_table venv, S_table tenv, A_dec d, Temp
 		EM_error(d->pos, "unknown declaration type");
 		assert(0);
 	}
+    assert(0);
 }
 
 static Ty_ty transTy(S_table tenv, A_ty t) {
